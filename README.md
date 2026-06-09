@@ -40,9 +40,10 @@
 
 ## 🚀 Tecnologías Utilizadas
 
-> Frameworks: Angular & TailwindCSS -
-> Backend As A Service: Supabase -
+> Frontend Frameworks: Angular & TailwindCSS
+> Backend In Progress 🔄: NestJs
 > Database Engine: PostgreSQL
+> Deployment: Docker
 ---
 
 ## 📌 Nota

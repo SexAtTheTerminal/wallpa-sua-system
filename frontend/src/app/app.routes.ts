@@ -9,7 +9,7 @@ export const routes: Routes = [
     },
     {
         path: '',
-        canActivate: [publicGuard],
+        canActivate: [privateGuard],
         loadChildren: () => import('./views/features/view-shell/view-routing')
     }
 ];

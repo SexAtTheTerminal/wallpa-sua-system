@@ -1,141 +1,137 @@
-import { Injectable, inject } from '@angular/core';
-import { SupabaseService } from '../../shared/data-access/supabase.service';
-import { SignUpWithPasswordCredentials } from '@supabase/supabase-js';
-import { BehaviorSubject } from 'rxjs';
+import { Injectable, inject, signal, computed } from '@angular/core';
+import { ApiService } from '../../shared/data-access/api.service';
+import { Observable, tap, catchError, of } from 'rxjs';
+import { LoginRequest, LoginResponse, Usuario } from '../../shared/models/user.model';
 
 @Injectable({ providedIn: 'root' })
 export class AuthService {
-  private readonly _supabaseClient = inject(SupabaseService).supabaseClient;
+  private readonly apiService = inject(ApiService);
 
   private readonly _rolKey = 'user-role';
+  private readonly _userKey = 'current-user';
 
-  private readonly _roleSubject = new BehaviorSubject<string | null>(
-    localStorage.getItem(this._rolKey)
-  );
+  // Signals para estado reactivo
+  private readonly _currentUser = signal<Usuario | null>(this.getCurrentUserFromStorage());
+  private readonly _currentRole = signal<string | null>(localStorage.getItem(this._rolKey));
 
-  get currentRole(): string | null {
-    return this._roleSubject.value;
+  // Signals públicos (readonly)
+  readonly currentUser = this._currentUser.asReadonly();
+  readonly currentRole = this._currentRole.asReadonly();
+
+  // Computed signals
+  readonly isAuthenticated = computed(() => {
+    const token = this.apiService.getToken();
+    const user = this._currentUser();
+    return !!token && !!user;
+  });
+
+  readonly userName = computed(() => {
+    const user = this._currentUser();
+    return user ? `${user.nombre} ${user.apellido}` : 'Invitado';
+  });
+
+  readonly isAdmin = computed(() => this._currentRole() === 'admin');
+  readonly isCashier = computed(() => this._currentRole() === 'cashier');
+  readonly isCooker = computed(() => this._currentRole() === 'cooker');
+  readonly isWaiter = computed(() => this._currentRole() === 'waiter');
+
+  private getCurrentUserFromStorage(): Usuario | null {
+    const userStr = localStorage.getItem(this._userKey);
+    return userStr ? JSON.parse(userStr) : null;
   }
 
-  set currentRole(newRole: string | null) {
-    this._roleSubject.next(newRole);
-    if (newRole) {
-      localStorage.setItem(this._rolKey, newRole);
+  private setCurrentUser(user: Usuario | null): void {
+    this._currentUser.set(user);
+    if (user) {
+      localStorage.setItem(this._userKey, JSON.stringify(user));
+    } else {
+      localStorage.removeItem(this._userKey);
+    }
+  }
+
+  private setCurrentRole(role: string | null): void {
+    this._currentRole.set(role);
+    if (role) {
+      localStorage.setItem(this._rolKey, role);
     } else {
       localStorage.removeItem(this._rolKey);
     }
   }
 
-  role$ = this._roleSubject.asObservable();
+  /**
+   * Login con email y password
+   */
+  logIn(credentials: LoginRequest): Observable<LoginResponse> {
+    return this.apiService.post<LoginResponse>('auth/login', credentials).pipe(
+      tap((response) => {
+        // Guardar token
+        this.apiService.setToken(response.access_token);
 
-  session() {
-    return this._supabaseClient.auth.getSession();
-  }
-
-  async logIn(credentials: { email: string; password: string }) {
-    const { data, error } = await this._supabaseClient.auth.signInWithPassword(
-      credentials
+        // Guardar rol y usuario usando signals
+        this.setCurrentRole(response.user.rol);
+        this.setCurrentUser(response.user as any);
+      }),
+      catchError((error) => {
+        console.error('Error en login:', error);
+        throw error;
+      })
     );
-
-    if (error) throw error;
-
-    const userId = data.user?.id;
-
-    if (!userId) {
-      throw new Error('No se encontró el ID del usuario.');
-    }
-
-    // Consultamos la tabla UsersTest para obtener el rol
-    const { data: rolData, error: rolError } = await this._supabaseClient
-      .from('Usuario')
-      .select('Rol(nombreRol)')
-      .eq('idAuth', userId)
-      .eq('estado', true)
-      .single();
-
-    if (rolError) throw rolError;
-
-    const rol = rolData?.Rol?.nombreRol?.trim(); // Eliminamos '\n' si existiera
-
-    if (!rol) throw new Error('No se encontró un rol asignado.');
-
-    // Guardamos el rol en memoria y en localStorage
-    this.currentRole = rol;
-
-    return { session: data.session, rol };
   }
 
-  async getUserProfile(userId: string) {
-    const { data, error } = await this._supabaseClient
-      .from('Usuario')
-      .select(
-        `
-      email,
-      Empleado: idEmpleado (
-        nombreEmpleado,
-        apellPaternEmpleado,
-        apellMaternEmpleado,
-        telefono
-      ),
-      Rol: idRol (nombreRol)
-    `
-      )
-      .eq('idAuth', userId)
-      .single();
-
-    if (error) throw error;
-
-    return {
-      email: data.email,
-      nombreEmpleado: data.Empleado?.nombreEmpleado,
-      apellPaternEmpleado: data.Empleado?.apellPaternEmpleado,
-      apellMaternEmpleado: data.Empleado?.apellMaternEmpleado,
-      telefono: data.Empleado?.telefono,
-      nombreRol: data.Rol?.nombreRol,
-    };
-  }
-  signUp(credentials: SignUpWithPasswordCredentials) {
-    return this._supabaseClient.auth.signUp(credentials);
+  /**
+   * Obtener perfil del usuario actual
+   */
+  getUserProfile(): Observable<Usuario> {
+    return this.apiService.get<Usuario>('auth/profile').pipe(
+      tap((user) => {
+        this.setCurrentUser(user);
+        if (user.rol) {
+          this.setCurrentRole(user.rol.nombre);
+        }
+      })
+    );
   }
 
-  async verifyRoleOrSignOut(): Promise<boolean> {
-    try {
-      const { data: sessionData, error: sessionError } =
-        await this._supabaseClient.auth.getSession();
-
-      if (sessionError || !sessionData.session?.user?.id) {
-        throw new Error('No se encontró sesión activa.');
-      }
-
-      const userId = sessionData.session.user.id;
-
-      const { data: rolData, error: rolError } = await this._supabaseClient
-        .from('Usuario')
-        .select('Rol(nombreRol)')
-        .eq('idAuth', userId)
-        .eq('estado', true)
-        .single();
-
-      if (rolError) throw rolError;
-
-      const dbRole = rolData?.Rol?.nombreRol?.trim();
-      const localRole = localStorage.getItem(this._rolKey);
-
-      if (!dbRole || localRole !== dbRole) {
-        throw new Error('Rol inválido o manipulado');
-      }
-
-      this.currentRole = dbRole; // sincroniza el valor real
-      return true;
-    } catch (error) {
-      console.warn('Verificación fallida, cerrando sesión:', error);
+  /**
+   * Verificar si el rol es válido
+   */
+  verifyRoleOrSignOut(): Observable<boolean> {
+    if (!this.isAuthenticated()) {
       this.signOut();
-      return false;
+      return of(false);
     }
+
+    return this.getUserProfile().pipe(
+      tap((user) => {
+        const dbRole = user.rol?.nombre;
+        const localRole = this._currentRole();
+
+        if (!dbRole || localRole !== dbRole) {
+          throw new Error('Rol inválido o manipulado');
+        }
+      }),
+      tap(() => true),
+      catchError((error) => {
+        console.warn('Verificación fallida, cerrando sesión:', error);
+        this.signOut();
+        return of(false);
+      })
+    );
   }
 
-  signOut() {
-    this.currentRole = null;
-    return this._supabaseClient.auth.signOut();
+  /**
+   * Cerrar sesión
+   */
+  signOut(): void {
+    this.setCurrentRole(null);
+    this.setCurrentUser(null);
+    this.apiService.removeToken();
+  }
+
+  /**
+   * Registro de nuevo usuario (si se necesita desde el frontend)
+   */
+  signUp(userData: any): Observable<Usuario> {
+    return this.apiService.post<Usuario>('usuarios', userData);
   }
 }

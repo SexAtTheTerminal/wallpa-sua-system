@@ -1,39 +1,23 @@
 import {
   IsNumber,
   IsString,
-  IsOptional,
-  IsDecimal,
+  IsEnum,
+  IsUUID,
   Min,
 } from 'class-validator';
-
-class ClienteDataDto {
-  @IsString()
-  nombre: string;
-
-  @IsString()
-  apellidoPaterno: string;
-
-  @IsString()
-  @IsOptional()
-  apellidoMaterno?: string;
-}
+import { MetodoPagoEnum } from '../../entities/pago.entity';
 
 export class CreatePagoDto {
   @IsNumber()
-  idPedido: number;
+  pedidoId: number;
+
+  @IsUUID()
+  cajeroId: string;
 
   @IsNumber()
-  @IsOptional()
-  idMetodoPago?: number;
-
-  @IsDecimal()
   @Min(0)
-  montoTotal: number;
+  montoPagado: number;
 
-  @IsString()
-  @IsOptional()
-  dniCliente?: string;
-
-  @IsOptional()
-  clienteData?: ClienteDataDto;
+  @IsEnum(MetodoPagoEnum)
+  metodoPago: MetodoPagoEnum;
 }

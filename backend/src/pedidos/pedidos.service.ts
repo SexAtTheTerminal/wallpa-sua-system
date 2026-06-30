@@ -1,217 +1,221 @@
 import { Injectable, NotFoundException } from '@nestjs/common';
-import { PrismaService } from '../prisma/prisma.service';
+import { InjectRepository } from '@nestjs/typeorm';
+import { Repository } from 'typeorm';
+import { Pedido, EstadoPedido } from '../entities/pedido.entity';
+import { DetallePedido } from '../entities/detalle-pedido.entity';
+import { Item } from '../entities/item.entity';
 import { CreatePedidoDto } from './dto/create-pedido.dto';
 import { UpdatePedidoDto } from './dto/update-pedido.dto';
 
 @Injectable()
 export class PedidosService {
-  constructor(private readonly prisma: PrismaService) {}
+  constructor(
+    @InjectRepository(Pedido)
+    private pedidoRepository: Repository<Pedido>,
+    @InjectRepository(DetallePedido)
+    private detallePedidoRepository: Repository<DetallePedido>,
+    @InjectRepository(Item)
+    private itemRepository: Repository<Item>,
+  ) {}
 
-  async findAll() {
-    return this.prisma.pedido.findMany({
-      include: {
-        mesa: true,
-        modalidad: true,
-        detallePedidos: {
-          include: {
-            producto: true,
-          },
-        },
-      },
-      orderBy: { fecha: 'desc' },
+  async findAll(): Promise<Pedido[]> {
+    return this.pedidoRepository.find({
+      relations: ['usuario', 'detallesPedido', 'detallesPedido.item'],
+      order: { fechaCreacion: 'DESC' },
     });
   }
 
-  async findById(id: number) {
-    const pedido = await this.prisma.pedido.findUnique({
-      where: { idPedido: id },
-      include: {
-        mesa: true,
-        modalidad: true,
-        detallePedidos: {
-          include: {
-            producto: true,
-          },
-        },
-      },
+  async findById(id: number): Promise<Pedido> {
+    const pedido = await this.pedidoRepository.findOne({
+      where: { id },
+      relations: ['usuario', 'detallesPedido', 'detallesPedido.item', 'pago'],
     });
+
     if (!pedido) {
       throw new NotFoundException(`Pedido con ID ${id} no encontrado`);
     }
+
     return pedido;
   }
 
-  async findPendientes() {
-    return this.prisma.pedido.findMany({
-      where: { estado: false },
-      include: {
-        mesa: true,
-        modalidad: true,
-        detallePedidos: {
-          include: {
-            producto: true,
-          },
-        },
-      },
-      orderBy: { fecha: 'desc' },
+  async findPendientes(): Promise<Pedido[]> {
+    return this.pedidoRepository.find({
+      where: { estado: EstadoPedido.PENDIENTE },
+      relations: ['usuario', 'detallesPedido', 'detallesPedido.item'],
+      order: { fechaCreacion: 'DESC' },
     });
   }
 
-  async findByMesa(mesaId: number) {
-    return this.prisma.pedido.findMany({
-      where: {
-        idMesa: mesaId,
-        estado: true,
-        estadoPagado: false,
-      },
-      include: {
-        detallePedidos: {
-          include: {
-            producto: true,
-          },
-        },
-      },
+  async findByMesa(mesaId: number): Promise<Pedido[]> {
+    // Convertir el ID a string de mesa (formato: "1" -> "1", "2" -> "2", etc.)
+    const nroMesa = mesaId.toString();
+    return this.pedidoRepository.find({
+      where: { nroMesa },
+      relations: ['usuario', 'detallesPedido', 'detallesPedido.item'],
+      order: { fechaCreacion: 'DESC' },
     });
   }
 
-  async create(createPedidoDto: CreatePedidoDto) {
-    const { items, ...pedidoData } = createPedidoDto;
+  async create(createPedidoDto: CreatePedidoDto): Promise<Pedido> {
+    const { items, usuarioId, nroMesa } = createPedidoDto;
 
-    // Calcular monto total
-    let montoTotal = 0;
-    for (const item of items) {
-      const producto = await this.prisma.producto.findUnique({
-        where: { idProducto: item.idProducto },
+    // Calcular el total del pedido
+    let total = 0;
+    for (const itemDto of items) {
+      const item = await this.itemRepository.findOne({
+        where: { id: itemDto.itemId },
       });
-      if (producto) {
-        montoTotal += Number(producto.precio) * item.cantidad;
+
+      if (!item) {
+        throw new NotFoundException(`Item con ID ${itemDto.itemId} no encontrado`);
+      }
+
+      if (!item.disponible) {
+        throw new NotFoundException(`Item "${item.nombre}" no está disponible`);
+      }
+
+      total += Number(item.precio) * itemDto.cantidad;
+    }
+
+    // Crear el pedido
+    const pedido = this.pedidoRepository.create({
+      usuarioId,
+      nroMesa,
+      estado: EstadoPedido.PENDIENTE,
+      total,
+    });
+
+    const savedPedido = await this.pedidoRepository.save(pedido);
+
+    // Crear los detalles del pedido
+    for (const itemDto of items) {
+      const item = await this.itemRepository.findOne({
+        where: { id: itemDto.itemId },
+      });
+
+      if (!item) {
+        throw new NotFoundException(`Item con ID ${itemDto.itemId} no encontrado`);
+      }
+
+      const detalle = this.detallePedidoRepository.create({
+        pedidoId: savedPedido.id,
+        itemId: item.id,
+        cantidad: itemDto.cantidad,
+        precioUnitario: Number(item.precio),
+        notas: itemDto.notas,
+      });
+
+      await this.detallePedidoRepository.save(detalle);
+    }
+
+    return this.findById(savedPedido.id);
+  }
+
+  async update(id: number, updatePedidoDto: UpdatePedidoDto): Promise<Pedido> {
+    const pedido = await this.findById(id);
+
+    if (updatePedidoDto.estado) {
+      pedido.estado = updatePedidoDto.estado;
+    }
+
+    if (updatePedidoDto.nroMesa) {
+      pedido.nroMesa = updatePedidoDto.nroMesa;
+    }
+
+    await this.pedidoRepository.save(pedido);
+
+    return this.findById(id);
+  }
+
+  async updateEstado(id: number): Promise<Pedido> {
+    const pedido = await this.findById(id);
+
+    // Avanzar al siguiente estado
+    const estadosOrden = [
+      EstadoPedido.PENDIENTE,
+      EstadoPedido.EN_COCINA,
+      EstadoPedido.LISTO,
+      EstadoPedido.ENTREGADO,
+      EstadoPedido.PAGADO,
+    ];
+
+    const indiceActual = estadosOrden.indexOf(pedido.estado);
+    if (indiceActual < estadosOrden.length - 1) {
+      pedido.estado = estadosOrden[indiceActual + 1];
+    }
+
+    await this.pedidoRepository.save(pedido);
+    return this.findById(id);
+  }
+
+  async updateEstadoPagado(id: number): Promise<Pedido> {
+    const pedido = await this.findById(id);
+    pedido.estado = EstadoPedido.PAGADO;
+    await this.pedidoRepository.save(pedido);
+    return this.findById(id);
+  }
+
+  async getMesas(): Promise<{ id: number; numero: string; ocupada: boolean }[]> {
+    // Obtener todas las mesas únicas de los pedidos
+    const pedidos = await this.pedidoRepository
+      .createQueryBuilder('pedido')
+      .select('DISTINCT pedido.nroMesa', 'numero')
+      .getRawMany();
+
+    // Obtener mesas con pedidos activos (no pagados)
+    const pedidosActivos = await this.pedidoRepository.find({
+      where: [
+        { estado: EstadoPedido.PENDIENTE },
+        { estado: EstadoPedido.EN_COCINA },
+        { estado: EstadoPedido.LISTO },
+        { estado: EstadoPedido.ENTREGADO },
+      ],
+    });
+
+    const mesasOcupadas = new Set(pedidosActivos.map((p) => p.nroMesa));
+
+    return pedidos.map((p, index) => ({
+      id: parseInt(p.numero) || index + 1,
+      numero: p.numero,
+      ocupada: mesasOcupadas.has(p.numero),
+    }));
+  }
+
+  async getMesasDisponibles(): Promise<{ id: number; numero: string }[]> {
+    const todasLasMesas = await this.getMesas();
+    return todasLasMesas
+      .filter((mesa) => !mesa.ocupada)
+      .map(({ id, numero }) => ({ id, numero }));
+  }
+
+  async getModalidades(): Promise<{ id: number; nombre: string }[]> {
+    // Las modalidades no están en el schema actual, retornar valores por defecto
+    return [
+      { id: 1, nombre: 'Para llevar' },
+      { id: 2, nombre: 'En mesa' },
+    ];
+  }
+
+  async updateMesaEstado(mesaId: number): Promise<{ message: string }> {
+    // Actualizar todos los pedidos de una mesa a estado PAGADO
+    const nroMesa = mesaId.toString();
+    const pedidos = await this.pedidoRepository.find({
+      where: { nroMesa },
+    });
+
+    for (const pedido of pedidos) {
+      if (pedido.estado !== EstadoPedido.PAGADO) {
+        pedido.estado = EstadoPedido.PAGADO;
+        await this.pedidoRepository.save(pedido);
       }
     }
 
-    // Crear pedido con detalles en transacción
-    const pedido = await this.prisma.$transaction(async (prisma) => {
-      // Crear el pedido
-      const nuevoPedido = await prisma.pedido.create({
-        data: {
-          idMesa: pedidoData.idMesa,
-          idModalidad: pedidoData.idModalidad,
-          montoTotal,
-          estado: false,
-          estadoPagado: false,
-        },
-      });
-
-      // Crear detalles del pedido
-      for (const item of items) {
-        const producto = await prisma.producto.findUnique({
-          where: { idProducto: item.idProducto },
-        });
-        if (producto) {
-          await prisma.detallePedido.create({
-            data: {
-              idPedido: nuevoPedido.idPedido,
-              idProducto: item.idProducto,
-              cantidad: item.cantidad,
-              subTotal: Number(producto.precio) * item.cantidad,
-            },
-          });
-        }
-      }
-
-      // Actualizar estado de la mesa a ocupada
-      if (pedidoData.idMesa) {
-        await prisma.mesa.update({
-          where: { idMesa: pedidoData.idMesa },
-          data: { estado: false },
-        });
-      }
-
-      return nuevoPedido;
-    });
-
-    return this.findById(pedido.idPedido);
+    return { message: `Mesa ${nroMesa} marcada como disponible` };
   }
 
-  async update(id: number, updatePedidoDto: UpdatePedidoDto) {
-    await this.findById(id);
-
-    return this.prisma.pedido.update({
-      where: { idPedido: id },
-      data: updatePedidoDto,
-      include: {
-        mesa: true,
-        modalidad: true,
-        detallePedidos: {
-          include: {
-            producto: true,
-          },
-        },
-      },
-    });
-  }
-
-  async updateEstado(id: number) {
+  async remove(id: number): Promise<{ message: string }> {
     const pedido = await this.findById(id);
-    return this.prisma.pedido.update({
-      where: { idPedido: id },
-      data: { estado: !pedido.estado },
-      include: {
-        mesa: true,
-        modalidad: true,
-        detallePedidos: {
-          include: {
-            producto: true,
-          },
-        },
-      },
-    });
-  }
-
-  async updateEstadoPagado(id: number) {
-    const pedido = await this.findById(id);
-    return this.prisma.pedido.update({
-      where: { idPedido: id },
-      data: { estadoPagado: !pedido.estadoPagado },
-    });
-  }
-
-  async remove(id: number) {
-    await this.findById(id);
-    await this.prisma.pedido.delete({
-      where: { idPedido: id },
-    });
+    await this.pedidoRepository.remove(pedido);
     return { message: 'Pedido eliminado correctamente' };
-  }
-
-  async getMesas() {
-    return this.prisma.mesa.findMany({
-      orderBy: { numeroMesa: 'asc' },
-    });
-  }
-
-  async getMesasDisponibles() {
-    return this.prisma.mesa.findMany({
-      where: { estado: true },
-      orderBy: { numeroMesa: 'asc' },
-    });
-  }
-
-  async getModalidades() {
-    return this.prisma.modalidad.findMany({
-      orderBy: { nombreModalidad: 'asc' },
-    });
-  }
-
-  async updateMesaEstado(idMesa: number) {
-    const mesa = await this.prisma.mesa.findUnique({
-      where: { idMesa },
-    });
-    if (!mesa) {
-      throw new NotFoundException(`Mesa con ID ${idMesa} no encontrada`);
-    }
-    return this.prisma.mesa.update({
-      where: { idMesa },
-      data: { estado: !mesa.estado },
-    });
   }
 }

@@ -1,13 +1,12 @@
-import { PartialType } from '@nestjs/mapped-types';
-import { CreatePedidoDto } from './create-pedido.dto';
-import { IsBoolean, IsOptional } from 'class-validator';
+import { IsEnum, IsOptional, IsString } from 'class-validator';
+import { EstadoPedido } from '../../entities/pedido.entity';
 
-export class UpdatePedidoDto extends PartialType(CreatePedidoDto) {
-  @IsBoolean()
+export class UpdatePedidoDto {
+  @IsEnum(EstadoPedido)
   @IsOptional()
-  estado?: boolean;
+  estado?: EstadoPedido;
 
-  @IsBoolean()
+  @IsString()
   @IsOptional()
-  estadoPagado?: boolean;
+  nroMesa?: string;
 }

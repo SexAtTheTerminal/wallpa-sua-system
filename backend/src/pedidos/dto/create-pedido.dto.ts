@@ -1,9 +1,10 @@
 import {
-  IsNumber,
-  IsOptional,
+  IsString,
+  IsUUID,
   IsArray,
   ValidateNested,
   IsInt,
+  IsOptional,
   Min,
 } from 'class-validator';
 import { Type } from 'class-transformer';
@@ -11,20 +12,23 @@ import { Type } from 'class-transformer';
 class PedidoItemDto {
   @IsInt()
   @Min(1)
-  idProducto: number;
+  itemId: number;
 
   @IsInt()
   @Min(1)
   cantidad: number;
+
+  @IsString()
+  @IsOptional()
+  notas?: string;
 }
 
 export class CreatePedidoDto {
-  @IsNumber()
-  @IsOptional()
-  idMesa?: number;
+  @IsUUID()
+  usuarioId: string;
 
-  @IsNumber()
-  idModalidad: number;
+  @IsString()
+  nroMesa: string;
 
   @IsArray()
   @ValidateNested({ each: true })

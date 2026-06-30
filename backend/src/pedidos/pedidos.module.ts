@@ -5,9 +5,10 @@ import { PedidosController } from './pedidos.controller';
 import { Pedido } from '../entities/pedido.entity';
 import { DetallePedido } from '../entities/detalle-pedido.entity';
 import { Item } from '../entities/item.entity';
+import { Usuario } from '../entities/usuario.entity';
 
 @Module({
-  imports: [TypeOrmModule.forFeature([Pedido, DetallePedido, Item])],
+  imports: [TypeOrmModule.forFeature([Pedido, DetallePedido, Item, Usuario])],
   providers: [PedidosService],
   controllers: [PedidosController],
   exports: [PedidosService],

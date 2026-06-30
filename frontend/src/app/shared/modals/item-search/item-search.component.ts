@@ -55,7 +55,7 @@ export class ItemSearchComponent implements OnInit {
   ) {}
 
   ngOnInit(): void {
-    this.registrarPedidosService.obtenerProductosDesdeDB().then((items) => {
+    this.registrarPedidosService.obtenerProductosDesdeDB().then((items: any[]) => {
       this.items = items;
 
       // Marcar como seleccionados los que ya están en la tabla

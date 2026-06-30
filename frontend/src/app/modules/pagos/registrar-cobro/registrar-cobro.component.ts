@@ -5,9 +5,6 @@ import { ApiPeruService } from '../../../shared/data-access/api-peru.service';
 import { catchError, throwError } from 'rxjs';
 import { FormsModule } from '@angular/forms';
 import { RegistrarCobroService } from '../../../services/data-access/registrar-cobro/registrar-cobro.service';
-import { AuthService } from '../../../auth/data-access/auth.service';
-import { Router } from '@angular/router';
-import { SupabaseService } from '../../../shared/data-access/supabase.service';
 
 @Component({
   selector: 'app-registrar-cobro',
@@ -35,13 +32,9 @@ export class RegistrarCobroComponent {
   tiposPago: { id: number; nombre: string }[] = [];
   tipoPagoSeleccionado: { id: number; nombre: string } | null = null;
 
-  private readonly _authService = inject(AuthService);
   private readonly registrarCobroService = inject(RegistrarCobroService);
 
-  constructor(
-    private readonly apiPeruService: ApiPeruService,
-    private readonly router: Router
-  ) {}
+  constructor(private readonly apiPeruService: ApiPeruService) {}
 
   onSidebarToggle(state: boolean): void {
     this.sidebarCollapsed = state;
@@ -53,11 +46,7 @@ export class RegistrarCobroComponent {
   }
 
   async ngOnInit() {
-    this._authService.verifyRoleOrSignOut().then((isValid) => {
-      if (!isValid) {
-        this.router.navigate(['/auth/log-in']);
-      }
-    });
+    // La verificación de autenticación la manejan los guards de Angular
     this.mesas = await this.registrarCobroService.obtenerMesas();
 
     // Inicializar tipos de pago
@@ -84,7 +73,7 @@ export class RegistrarCobroComponent {
     this.loading = true;
 
     try {
-      const clienteExistente =
+      const clienteExistente: any =
         await this.registrarCobroService.verificarClienteExiste(this.dni);
 
       if (clienteExistente) {
@@ -93,7 +82,7 @@ export class RegistrarCobroComponent {
           clienteExistente.apellPaterno
         } ${clienteExistente.apellMaterno || ''}`;
         this.loading = false;
-        console.log('Cliente con historial de Compras en Supabase');
+        console.log('Cliente encontrado en la base de datos');
         return;
       }
 
@@ -126,14 +115,24 @@ export class RegistrarCobroComponent {
                   clienteParaGuardar
                 );
 
-              this.clienteCompleto = clienteGuardado[0];
-              this.clienteNombres = `${apiData.nombres} ${
-                apiData.apellido_paterno
-              } ${apiData.apellido_materno || ''}`;
-              this.error = null;
+              if (clienteGuardado && Array.isArray(clienteGuardado)) {
+                this.clienteCompleto = clienteGuardado[0];
+                this.clienteNombres = `${apiData.nombres} ${
+                  apiData.apellido_paterno
+                } ${apiData.apellido_materno || ''}`;
+                this.error = null;
 
-              console.log('Cliente guardado en Supabase');
-              alert('Cliente registrado en Supabase exitosamente');
+                console.log('Cliente guardado en base de datos');
+                alert('Cliente registrado exitosamente');
+              } else {
+                // Servicio no implementado aún, usar datos de la API
+                this.clienteCompleto = clienteParaGuardar;
+                this.clienteNombres = `${apiData.nombres} ${
+                  apiData.apellido_paterno
+                } ${apiData.apellido_materno || ''}`;
+                this.error = null;
+                console.warn('Servicio guardarCliente no implementado - usando datos temporales');
+              }
             } catch (supabaseError) {
               console.error('Error al guardar en Supabase:', supabaseError);
               this.error = 'Error al guardar cliente en la base de datos';

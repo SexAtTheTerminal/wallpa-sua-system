@@ -1,21 +1,16 @@
-import { Injectable, inject } from '@angular/core';
-import { SupabaseService } from '../../../shared/data-access/supabase.service';
+import { Injectable } from '@angular/core';
 import { BehaviorSubject } from 'rxjs';
 
 @Injectable({
   providedIn: 'root',
 })
 export class RegistrarPedidosService {
-  private readonly _supabaseClient = inject(SupabaseService).supabaseClient;
+  // NOTA: Este servicio necesita ser migrado al backend REST API
+  // Por ahora retorna datos vacíos para que compile
 
-  // Notificador para nuevo pedido registrado
-  private readonly pedidoRegistradoSubject = new BehaviorSubject<void>(
-    undefined
-  );
-
+  private readonly pedidoRegistradoSubject = new BehaviorSubject<void>(undefined);
   pedidoRegistrado$ = this.pedidoRegistradoSubject.asObservable();
 
-  // Llamar cuando se registre un nuevo pedido
   notificarNuevoPedido() {
     this.pedidoRegistradoSubject.next();
   }
@@ -27,157 +22,34 @@ export class RegistrarPedidosService {
     idModalidad: number,
     montoTotal: number,
     estado: boolean,
-    items: {
-      cantidad: number;
-      descripcion: string;
-      id: number;
-      precio: number;
-      precioUnitario: number;
-      seleccionado: boolean;
-      subtotal: number;
-      tipo: string;
-      unidad: string;
-    }[]
+    items: any[]
   ): Promise<boolean> {
-    const fechaLocal = new Date();
-    const fechaFormateada = fechaLocal
-      .toISOString()
-      .slice(0, 19)
-      .replace('T', ' ');
-    const { data: pedidoInsertado, error: errorPedido } =
-      await this._supabaseClient
-        .from('Pedido')
-        .insert([
-          {
-            fecha: fechaFormateada,
-            idMesa,
-            idModalidad,
-            montoTotal: montoTotal,
-            estado,
-            estadoPagado: false,
-          },
-        ])
-        .select('idPedido');
-
-    if (errorPedido || !pedidoInsertado || pedidoInsertado.length === 0) {
-      console.error('Error al insertar el pedido:', errorPedido);
-      return false;
-    }
-
-    const idPedido = pedidoInsertado[0].idPedido;
-
-    const detalles = items.map((item) => ({
-      idPedido,
-      idProducto: item.id,
-      cantidad: item.cantidad,
-      subTotal: item.subtotal,
-    }));
-
-    const { error: errorDetalles } = await this._supabaseClient
-      .from('DetallePedido')
-      .insert(detalles);
-
-    if (errorDetalles) {
-      console.error(
-        'Error al insertar los detalles del pedido:',
-        errorDetalles
-      );
-      return false;
-    }
-
-    // Actualizar estado de la mesa a ocupado
-    const { error: errorMesa } = await this._supabaseClient
-      .from('Mesa')
-      .update({ estado: false })
-      .eq('idMesa', idMesa);
-    console.log('Actualizando mesa:', idMesa);
-
-    if (errorMesa) {
-      console.error('Error al actualizar el estado de la mesa:', errorMesa);
-      return false;
-    }
-
-    console.log('Pedido y detalles registrados con éxito');
-    this.notificarNuevoPedido(); // Notificar a los suscriptores
-    return true;
+    console.warn('agregarPedidoConDetalles: Método no implementado - requiere migración al backend REST API');
+    return false;
   }
 
   async obtenerMesas(): Promise<any[]> {
-    const { data, error } = await this._supabaseClient
-      .from('Mesa')
-      .select(`idMesa, numeroMesa`)
-      .eq('estado', true) // Solo mesas desocupadas
-      .order('idMesa', { ascending: true }); // Ordenar por idMesa ascendente
-
-    if (error) {
-      console.error('Error al obtener mesas:', error);
-      return [];
-    }
-
-    return data as any[];
+    console.warn('obtenerMesas: Método no implementado - requiere migración al backend REST API');
+    return [];
   }
 
   async obtenerModalidad(): Promise<any[]> {
-    const { data, error } = await this._supabaseClient
-      .from('Modalidad')
-      .select(`idModalidad, nombreModalidad `);
-
-    if (error) {
-      console.error('Error al obtener modalidades:', error);
-      return [];
-    } else {
-      return data as any[];
-    }
-  }
-
-  async obtenerProductosDesdeDB(): Promise<any[]> {
-    const { data, error } = await this._supabaseClient.from('Producto').select(`
-        idProducto,
-        nombreProducto,
-        precio,
-        Categoria (
-          nombreCategoria
-        )
-      `);
-
-    if (error) {
-      console.error('Error al obtener productos:', error);
-      return [];
-    }
-
-    return data.map((producto: any) => ({
-      id: producto.idProducto,
-      descripcion: producto.nombreProducto,
-      precio: producto.precio,
-      tipo: producto.Categoria?.nombreCategoria ?? 'Sin categoría',
-      unidad: 'CARTA',
-      cantidad: 1,
-      precioUnitario: producto.precio,
-      subtotal: producto.precio,
-      seleccionado: false,
-    }));
+    console.warn('obtenerModalidad: Método no implementado - requiere migración al backend REST API');
+    return [];
   }
 
   async obtenerUltimoIdPedido(): Promise<number | null> {
-    const { data, error } = await this._supabaseClient
-      .from('Pedido')
-      .select('idPedido')
-      .order('idPedido', { ascending: false })
-      .limit(1)
-      .maybeSingle();
-
-    if (error) {
-      console.error('Error al obtener el último ID de pedido:', error);
-      return null;
-    }
-
-    return data?.idPedido ?? null;
+    console.warn('obtenerUltimoIdPedido: Método no implementado - requiere migración al backend REST API');
+    return null;
   }
 
   async generarNuevoCodigoPedido(): Promise<string> {
-    const ultimoId = await this.obtenerUltimoIdPedido();
-    const nuevoId = (ultimoId ?? 0) + 1;
+    console.warn('generarNuevoCodigoPedido: Método no implementado - requiere migración al backend REST API');
+    return 'PD-00000001';
+  }
 
-    return `PD-${nuevoId.toString().padStart(8, '0')}`;
+  async obtenerProductosDesdeDB(): Promise<any[]> {
+    console.warn('obtenerProductosDesdeDB: Método no implementado - requiere migración al backend REST API');
+    return [];
   }
 }

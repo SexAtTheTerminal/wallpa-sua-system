@@ -1,11 +1,10 @@
 import { Component, OnInit, inject } from '@angular/core';
 import { ReceiptsService } from '../../../services/data-access/receipts-service/receipts-service.service';
 import { CommonModule } from '@angular/common';
-import { RouterLink, Router } from '@angular/router';
+import { Router, RouterLink } from '@angular/router';
 import { SidebarAdminComponent } from '../../../sidebar/features/sidebar-admin/sidebar-admin.component';
 import { FiltrosReceiptsComponent } from '../../../shared/modals/filtros-receipts/filtros-receipts.component';
 import { TablaReceiptsComponent } from '../../../shared/modals/tabla-receipts/tabla-receipts.component';
-import { AuthService } from '../../../auth/data-access/auth.service';
 
 @Component({
   selector: 'app-receipts',
@@ -35,19 +34,12 @@ export class ReceiptsComponent implements OnInit {
   // UI
   mensajeExito = '';
 
-  private readonly _authService = inject(AuthService);
+  private readonly router = inject(Router);
 
-  constructor(
-    private readonly receiptsService: ReceiptsService,
-    private readonly router: Router
-  ) {}
+  constructor(private readonly receiptsService: ReceiptsService) {}
 
   ngOnInit(): void {
-    this._authService.verifyRoleOrSignOut().then((isValid) => {
-      if (!isValid) {
-        this.router.navigate(['/auth/log-in']);
-      }
-    });
+    // La verificación de autenticación la manejan los guards de Angular
     this.cargarPagos();
   }
 

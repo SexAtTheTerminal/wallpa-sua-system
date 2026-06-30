@@ -95,7 +95,7 @@ export class AuthService {
   /**
    * Verificar si el rol es válido
    */
-  verifyRoleOrSignOut(): Observable<boolean> {
+  verifyRoleOrSignOut(): Observable<boolean | Usuario> {
     if (!this.isAuthenticated()) {
       this.signOut();
       return of(false);

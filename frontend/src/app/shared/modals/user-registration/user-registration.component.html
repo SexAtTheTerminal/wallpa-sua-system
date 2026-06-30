@@ -86,27 +86,16 @@
           </div>
         </div>
 
-        <!-- Fila inferior (DNI y Cargo) -->
+        <!-- Campo DNI (opcional) -->
         <div class="grid grid-cols-1 md:grid-cols-2 gap-6 mt-5">
           <div>
-            <label class="block text-sm font-medium text-gray-700 mb-1">DNI *</label>
-            <input 
-              type="text" 
-              [(ngModel)]="usuarioData.dni" 
+            <label class="block text-sm font-medium text-gray-700 mb-1">DNI</label>
+            <input
+              type="text"
+              [(ngModel)]="usuarioData.dni"
               name="dni"
-              class="w-full p-2.5 border border-gray-200 rounded-lg bg-white text-sm text-gray-700" 
-              placeholder="Ingresar DNI">
-          </div>
-          
-          <div>
-            <label class="block text-sm font-medium text-gray-700 mb-1">Cargo *</label>
-            <select 
-              [(ngModel)]="usuarioData.idCargo" 
-              name="idCargo"
-              class="w-full p-2.5 border border-gray-200 rounded-lg bg-white text-sm text-gray-700">
-              <option [value]="null">Seleccionar cargo</option>
-              <option *ngFor="let cargo of cargos" [value]="cargo.idCargo">{{cargo.nombreCargo}}</option>
-            </select>
+              class="w-full p-2.5 border border-gray-200 rounded-lg bg-white text-sm text-gray-700"
+              placeholder="Ingresar DNI (opcional)">
           </div>
         </div>
       </div>
@@ -151,12 +140,12 @@
           
           <div>
             <label class="block text-sm font-medium text-gray-700 mb-1">Rol *</label>
-            <select 
-              [(ngModel)]="usuarioData.idRol" 
+            <select
+              [(ngModel)]="usuarioData.idRol"
               name="idRol"
               class="w-full p-2.5 border border-gray-200 rounded-lg bg-white text-sm text-gray-700">
               <option [value]="null">Seleccionar rol</option>
-              <option *ngFor="let rol of roles" [value]="rol.idRol">{{rol.nombreRol}}</option>
+              <option *ngFor="let rol of roles" [value]="rol.id">{{rol.nombre}}</option>
             </select>
           </div>
 

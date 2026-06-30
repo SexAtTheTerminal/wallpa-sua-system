@@ -7,19 +7,20 @@ export function roleGuard(expectedRoles: string[]): CanActivateFn {
     const authService = inject(AuthService);
     const router = inject(Router);
 
-    const userRole = authService.currentRole;
+    // Llamar al signal como función
+    const userRole = authService.currentRole();
 
     // Si no tiene rol o el rol no está en los permitidos
     if (!userRole || !expectedRoles.includes(userRole)) {
       // Redireccionamos a la ruta por defecto de su rol
       switch (userRole) {
-        case 'Cocinero':
+        case 'cooker':
           router.navigateByUrl('/cooker');
           break;
-        case 'Cajero':
+        case 'cashier':
           router.navigateByUrl('/cashier');
           break;
-        case 'Administrador':
+        case 'admin':
           router.navigateByUrl('/admin');
           break;
         default:

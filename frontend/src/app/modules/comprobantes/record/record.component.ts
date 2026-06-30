@@ -1,12 +1,11 @@
-import { Component, inject } from '@angular/core';
+import { Component } from '@angular/core';
 import { CommonModule } from '@angular/common';
-import { RouterLink, Router } from '@angular/router';
+import { RouterLink } from '@angular/router';
 import { SidebarAdminComponent } from '../../../sidebar/features/sidebar-admin/sidebar-admin.component';
 import { UsersServiceService } from '../../../services/data-access/users-service/users-service.service';
 import { TablaUsuariosComponent } from '../../../shared/modals/tabla-usuarios/tabla-usuarios.component';
 import { FiltrosUsuariosComponent } from '../../../shared/modals/filtros-usuarios/filtros-usuarios.component';
 import { UserRegistrationComponent } from '../../../shared/modals/user-registration/user-registration.component';
-import { AuthService } from '../../../auth/data-access/auth.service';
 
 @Component({
   selector: 'app-record',
@@ -38,46 +37,44 @@ export class RecordComponent {
   modalAbierto = false;
   usuarioParaEditar: any = null;
 
-  private readonly _authService = inject(AuthService);
+  constructor(private readonly usersService: UsersServiceService) {}
 
-  constructor(
-    private readonly usersService: UsersServiceService,
-    private readonly router: Router
-  ) {}
-
-  async ngOnInit() {
-    this._authService.verifyRoleOrSignOut().then((isValid) => {
-      if (!isValid) {
-        this.router.navigate(['/auth/log-in']);
-      }
-    });
-    await this.cargarUsuarios();
+  ngOnInit() {
+    // La verificación de autenticación la manejan los guards de Angular
+    this.cargarUsuarios();
   }
 
-  async cargarUsuarios() {
-    this.usuarios = await this.usersService.obtenerUsuariosDesdeDB();
-    this.aplicarFiltros();
+  cargarUsuarios() {
+    this.usersService.obtenerUsuariosDesdeDB().subscribe({
+      next: (usuarios) => {
+        this.usuarios = usuarios;
+        this.aplicarFiltros();
+      },
+      error: (error) => {
+        console.error('Error al cargar usuarios:', error);
+        alert('Error al cargar usuarios');
+      }
+    });
   }
 
   aplicarFiltros(): void {
     let resultados = [...this.usuarios];
 
     if (this.busquedaCodigo) {
-      if (this.filtroCargo === 'DNI') {
+      const searchTerm = this.busquedaCodigo.toLowerCase();
+
+      if (this.filtroCargo === 'Nombre y Apellidos') {
         resultados = resultados.filter((u) =>
-          u.DNI.toLowerCase().includes(this.busquedaCodigo.toLowerCase())
-        );
-      } else if (this.filtroCargo === 'Nombre y Apellidos') {
-        resultados = resultados.filter((u) =>
-          u['Nombre y Apellido']
-            .toLowerCase()
-            .includes(this.busquedaCodigo.toLowerCase())
+          `${u.nombre} ${u.apellido}`.toLowerCase().includes(searchTerm)
         );
       } else if (this.filtroCargo === 'Correo Electrónico') {
         resultados = resultados.filter((u) =>
-          u['Correo Electrónico']
-            .toLowerCase()
-            .includes(this.busquedaCodigo.toLowerCase())
+          u.email.toLowerCase().includes(searchTerm)
+        );
+      } else {
+        // Búsqueda general en nombre, apellido y email
+        resultados = resultados.filter((u) =>
+          `${u.nombre} ${u.apellido} ${u.email}`.toLowerCase().includes(searchTerm)
         );
       }
     }
@@ -90,40 +87,22 @@ export class RecordComponent {
     this.modalAbierto = true;
   }
 
-  async eliminarUsuario(usuario: any): Promise<void> {
+  eliminarUsuario(usuario: any): void {
     const confirmado = confirm(
-      `¿Estás seguro de eliminar al usuario ${usuario['Nombre y Apellido']}?`
+      `¿Estás seguro de eliminar al usuario ${usuario.nombre} ${usuario.apellido}?`
     );
     if (!confirmado) return;
 
-    try {
-      console.log('Datos para eliminar:', {
-        idUsuario: usuario.idUsuario,
-        idEmpleado: usuario.idEmpleado,
-        idAuth: usuario.idAuth,
-      });
-
-      const { success, error } =
-        await this.usersService.eliminarUsuarioCompleto(
-          usuario.idUsuario,
-          usuario.idEmpleado,
-          usuario.idAuth
-        );
-
-      if (success) {
+    this.usersService.eliminarUsuarioCompleto(usuario.id).subscribe({
+      next: () => {
         this.mostrarMensajeExito('Usuario eliminado correctamente');
-        await this.cargarUsuarios();
-      } else {
-        alert(`Error al eliminar usuario: ${error || 'Error desconocido'}`);
+        this.cargarUsuarios();
+      },
+      error: (error) => {
+        console.error('Error al eliminar usuario:', error);
+        alert(`Error al eliminar usuario: ${error?.error?.message || 'Error desconocido'}`);
       }
-    } catch (error) {
-      console.error('Error completo al eliminar:', error);
-      alert(
-        `Error técnico al eliminar: ${
-          error instanceof Error ? error.message : 'Error desconocido'
-        }`
-      );
-    }
+    });
   }
 
   crearUsuario(): void {
@@ -136,8 +115,8 @@ export class RecordComponent {
     this.usuarioParaEditar = null;
   }
 
-  async onUsuarioGuardado() {
-    await this.cargarUsuarios();
+  onUsuarioGuardado() {
+    this.cargarUsuarios();
     this.mostrarMensajeExito(
       this.usuarioParaEditar
         ? 'Usuario actualizado exitosamente'
@@ -152,11 +131,11 @@ export class RecordComponent {
     setTimeout(() => (this.mensajeExito = ''), 3000);
   }
 
-  async reiniciarFiltros() {
+  reiniciarFiltros() {
     this.busquedaCodigo = '';
     this.busquedaNombre = '';
     this.filtroCargo = '';
-    await this.cargarUsuarios();
+    this.cargarUsuarios();
   }
 
   onSidebarToggle(state: boolean): void {

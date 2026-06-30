@@ -1,5 +1,5 @@
 import { Injectable, inject } from '@angular/core';
-import { HttpClient, HttpHeaders } from '@angular/common/http';
+import { HttpClient } from '@angular/common/http';
 import { Observable } from 'rxjs';
 import { environment } from '../../../environments/environment.development';
 
@@ -13,36 +13,36 @@ export class ApiService {
   /**
    * Realiza una petición GET
    */
-  get<T>(endpoint: string, options?: any): Observable<T> {
-    return this.http.get<T>(`${this.apiUrl}/${endpoint}`, options);
+  get<T>(endpoint: string): Observable<T> {
+    return this.http.get<T>(`${this.apiUrl}/${endpoint}`);
   }
 
   /**
    * Realiza una petición POST
    */
-  post<T>(endpoint: string, body: any, options?: any): Observable<T> {
-    return this.http.post<T>(`${this.apiUrl}/${endpoint}`, body, options);
+  post<T>(endpoint: string, body: any): Observable<T> {
+    return this.http.post<T>(`${this.apiUrl}/${endpoint}`, body);
   }
 
   /**
    * Realiza una petición PUT
    */
-  put<T>(endpoint: string, body: any, options?: any): Observable<T> {
-    return this.http.put<T>(`${this.apiUrl}/${endpoint}`, body, options);
+  put<T>(endpoint: string, body: any): Observable<T> {
+    return this.http.put<T>(`${this.apiUrl}/${endpoint}`, body);
   }
 
   /**
    * Realiza una petición PATCH
    */
-  patch<T>(endpoint: string, body: any, options?: any): Observable<T> {
-    return this.http.patch<T>(`${this.apiUrl}/${endpoint}`, body, options);
+  patch<T>(endpoint: string, body: any): Observable<T> {
+    return this.http.patch<T>(`${this.apiUrl}/${endpoint}`, body);
   }
 
   /**
    * Realiza una petición DELETE
    */
-  delete<T>(endpoint: string, options?: any): Observable<T> {
-    return this.http.delete<T>(`${this.apiUrl}/${endpoint}`, options);
+  delete<T>(endpoint: string): Observable<T> {
+    return this.http.delete<T>(`${this.apiUrl}/${endpoint}`);
   }
 
   /**

@@ -1,11 +1,10 @@
 import { Component, OnInit, inject } from '@angular/core';
 import { SidebarCasherComponent } from '../../../sidebar/features/sidebar-casher/sidebar-casher.component';
 import { CommonModule } from '@angular/common';
-import { RouterLink, Router } from '@angular/router';
+import { RouterLink } from '@angular/router';
 import { FormsModule } from '@angular/forms';
 import { ItemSearchComponent } from '../../../shared/modals/item-search/item-search.component';
 import { RegistrarPedidosService } from '../../../services/data-access/registrar-pedidos/registrar-pedidos.service';
-import { AuthService } from '../../../auth/data-access/auth.service';
 
 interface Mesa {
   idMesa: number;
@@ -41,16 +40,10 @@ export class RegistrarPedidosComponent implements OnInit {
   nuevoCodigo: string = '';
   registrandoPedido = false;
 
-  private readonly _authService = inject(AuthService);
-  private readonly router = inject(Router);
   private readonly registrarPedidosService = inject(RegistrarPedidosService);
 
   ngOnInit(): void {
-    this._authService.verifyRoleOrSignOut().then((isValid) => {
-      if (!isValid) {
-        this.router.navigate(['/auth/log-in']);
-      }
-    });
+    // La verificación de autenticación la manejan los guards de Angular
     (async () => {
       try {
         const [mesas, modalidades, ultimoId] = await Promise.all([

@@ -38,36 +38,39 @@ export default class AuthLogInComponent {
 
   //Submission method
 
-  async submit() {
+  submit() {
     if (this.form.invalid) return;
 
-    try {
-      const { session, rol } = await this._authService.logIn({
-        email: this.form.value.email ?? '',
-        password: this.form.value.password ?? '',
-      });
+    this._authService.logIn({
+      email: this.form.value.email ?? '',
+      password: this.form.value.password ?? '',
+    }).subscribe({
+      next: (response) => {
+        // response contiene { access_token, user }
+        const rol = response.user.rol;
 
-      if (!session) throw new Error('Sesión no válida.');
-
-      // Redirigir según rol
-      switch (rol) {
-        case 'Cocinero':
-          this._router.navigateByUrl('/cooker');
-          break;
-        case 'Cajero':
-          this._router.navigateByUrl('/cashier');
-          break;
-        case 'Administrador':
-          this._router.navigateByUrl('/admin');
-          break;
-        default:
-          this._router.navigateByUrl('/');
-          break;
+        // Redirigir según rol
+        switch (rol) {
+          case 'cooker':
+            this._router.navigateByUrl('/cooker');
+            break;
+          case 'cashier':
+            this._router.navigateByUrl('/cashier');
+            break;
+          case 'admin':
+            this._router.navigateByUrl('/admin');
+            break;
+          case 'waiter':
+            this._router.navigateByUrl('/waiter');
+            break;
+          default:
+            this._router.navigateByUrl('/');
+            break;
+        }
+      },
+      error: (error) => {
+        console.error('Error al iniciar sesión:', error);
       }
-    } catch (error) {
-      if (error instanceof Error) {
-        console.error(error);
-      }
-    }
+    });
   }
 }

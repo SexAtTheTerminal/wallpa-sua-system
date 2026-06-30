@@ -6,17 +6,21 @@ export const notFoundRedirectGuard: CanActivateFn = () => {
   const authService = inject(AuthService);
   const router = inject(Router);
 
-  const role = authService.currentRole;
+  // Llamar al signal como función
+  const role = authService.currentRole();
 
   switch (role) {
-    case 'Cocinero':
+    case 'cooker':
       router.navigateByUrl('/cooker');
       break;
-    case 'Cajero':
+    case 'cashier':
       router.navigateByUrl('/cashier');
       break;
-    case 'Administrador':
+    case 'admin':
       router.navigateByUrl('/admin');
+      break;
+    case 'waiter':
+      router.navigateByUrl('/waiter');
       break;
     default:
       router.navigateByUrl('/auth/log-in');

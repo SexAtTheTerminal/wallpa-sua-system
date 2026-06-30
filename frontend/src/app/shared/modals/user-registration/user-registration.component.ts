@@ -31,7 +31,6 @@ export class UserRegistrationComponent implements OnInit {
   };
 
   roles: any[] = [];
-  cargos: any[] = [];
   isEditing = false;
   titulo = 'Registro de Usuario';
   loading = false;
@@ -39,17 +38,24 @@ export class UserRegistrationComponent implements OnInit {
 
   constructor(private usersService: UsersServiceService) {}
 
-  // Asegúrate de cargar correctamente los roles
-async ngOnInit() {
-  this.roles = await this.usersService.obtenerRoles();
-  this.cargos = await this.usersService.obtenerCargos();
+  ngOnInit() {
+    // Cargar roles desde el backend
+    this.usersService.obtenerRoles().subscribe({
+      next: (roles) => {
+        this.roles = roles;
+      },
+      error: (error) => {
+        console.error('Error al cargar roles:', error);
+        this.errorMessage = 'Error al cargar los roles disponibles';
+      }
+    });
 
-  if (this.usuarioParaEditar) {
-    this.isEditing = true;
-    this.titulo = 'Modificar Usuario';
-    this.cargarDatosParaEdicion();
+    if (this.usuarioParaEditar) {
+      this.isEditing = true;
+      this.titulo = 'Modificar Usuario';
+      this.cargarDatosParaEdicion();
+    }
   }
-}
 
 cargarDatosParaEdicion() {
   const nombreCompleto = this.usuarioParaEditar['Nombre y Apellido'].split(' ');
@@ -71,7 +77,7 @@ cargarDatosParaEdicion() {
     estado: this.usuarioParaEditar.estado
   };
 }
-  async onSubmit() {
+  onSubmit() {
     this.loading = true;
     this.errorMessage = '';
 
@@ -81,36 +87,43 @@ cargarDatosParaEdicion() {
       return;
     }
 
-    try {
-      let result;
-      
-      if (this.isEditing) {
-        result = await this.usersService.actualizarUsuarioCompleto(this.usuarioData);
-      } else {
-        result = await this.usersService.crearUsuarioCompleto(this.usuarioData);
-      }
+    // Preparar el DTO según el modelo del backend
+    const usuarioDto: any = {
+      nombre: this.usuarioData.nombre,
+      apellido: `${this.usuarioData.apellidoPaterno} ${this.usuarioData.apellidoMaterno || ''}`.trim(),
+      email: this.usuarioData.email,
+      rolId: this.usuarioData.idRol
+    };
 
-      if (result.success) {
-        this.usuarioGuardado.emit();
-        this.closeModal();
-      } else {
-        this.errorMessage = result.error || 'Ocurrió un error al guardar el usuario';
-      }
-    } catch (error) {
-      this.errorMessage = 'Error al procesar la solicitud';
-      console.error(error);
-    } finally {
-      this.loading = false;
+    // Solo incluir password si no estamos editando o si se proporcionó una nueva
+    if (!this.isEditing && this.usuarioData.password) {
+      usuarioDto.password = this.usuarioData.password;
     }
+
+    const observable = this.isEditing
+      ? this.usersService.actualizarUsuarioCompleto(this.usuarioData.idUsuario, usuarioDto)
+      : this.usersService.crearUsuarioCompleto(usuarioDto);
+
+    observable.subscribe({
+      next: (usuario) => {
+        // La operación fue exitosa, el backend retorna el usuario creado/actualizado
+        this.usuarioGuardado.emit(usuario);
+        this.closeModal();
+        this.loading = false;
+      },
+      error: (error) => {
+        this.errorMessage = error?.error?.message || 'Ocurrió un error al guardar el usuario';
+        console.error('Error al guardar usuario:', error);
+        this.loading = false;
+      }
+    });
   }
 
   validarFormulario(): boolean {
     // Validar que todos los campos requeridos estén llenos
-    if (!this.usuarioData.nombre || 
-        !this.usuarioData.apellidoPaterno || 
-        !this.usuarioData.dni || 
-        !this.usuarioData.email || 
-        !this.usuarioData.idCargo || 
+    if (!this.usuarioData.nombre ||
+        !this.usuarioData.apellidoPaterno ||
+        !this.usuarioData.email ||
         !this.usuarioData.idRol) {
       this.errorMessage = 'Todos los campos marcados como requeridos son obligatorios';
       return false;

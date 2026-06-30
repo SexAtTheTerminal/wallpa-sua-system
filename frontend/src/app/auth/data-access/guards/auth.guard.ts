@@ -2,30 +2,33 @@ import { inject } from '@angular/core';
 import { AuthService } from '../auth.service';
 import { CanActivateFn, Router } from '@angular/router';
 
-const routerInjection = () => inject(Router);
+export const privateGuard: CanActivateFn = (route, state) => {
+  const authService = inject(AuthService);
+  const router = inject(Router);
 
-const authService = () => inject(AuthService);
-
-export const privateGuard: CanActivateFn = async () => {
-  const router = routerInjection();
-
-  const { data } = await authService().session();
-
-  if (!data.session) {
-    router.navigateByUrl('/auth/log-in');
+  // Usar el computed signal isAuthenticated
+  if (authService.isAuthenticated()) {
+    return true;
   }
 
-  return !!data.session;
+  // Guardar la URL intentada para redirigir después del login
+  const returnUrl = state.url;
+  router.navigate(['/auth/log-in'], {
+    queryParams: { returnUrl }
+  });
+
+  return false;
 };
 
-export const publicGuard: CanActivateFn = async () => {
-  const router = routerInjection();
+export const publicGuard: CanActivateFn = (route, state) => {
+  const authService = inject(AuthService);
+  const router = inject(Router);
 
-  const { data } = await authService().session();
-
-  if (data.session) {
+  // Si el usuario ya está autenticado, redirigir al dashboard
+  if (authService.isAuthenticated()) {
     router.navigateByUrl('/');
+    return false;
   }
 
-  return !data.session;
+  return true;
 };

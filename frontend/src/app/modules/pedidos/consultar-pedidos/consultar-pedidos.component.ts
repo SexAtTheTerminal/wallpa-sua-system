@@ -7,7 +7,6 @@ import { FormsModule } from '@angular/forms';
 import { TablaPedidosComponent } from '../../../shared/modals/tabla-pedidos/tabla-pedidos.component';
 import { ConsultarPedidosService } from '../../../services/data-access/consultar-pedidos/consultar-pedidos.service';
 import { FiltrosPedidosComponent } from '../../../shared/modals/filtros-pedidos/filtros-pedidos.component';
-import { Router } from '@angular/router';
 import { AuthService } from '../../../auth/data-access/auth.service';
 
 @Component({
@@ -46,19 +45,15 @@ export class ConsultarPedidosComponent implements OnInit {
   resumen = { finalizados: 0, pendientes: 0 };
 
   private readonly _authService = inject(AuthService);
-  private readonly router = inject(Router);
 
   constructor(
     private readonly consultarPedidosService: ConsultarPedidosService
   ) {}
 
   ngOnInit(): void {
-    this.userRole = localStorage.getItem('user-role');
-    this._authService.verifyRoleOrSignOut().then((isValid) => {
-      if (!isValid) {
-        this.router.navigate(['/auth/log-in']);
-      }
-    });
+    // La verificación de autenticación la manejan los guards de Angular
+    this.userRole = this._authService.currentRole();
+
     this.consultarPedidosService.obtenerPedidosDesdeDB().then((pedidos) => {
       this.pedidos = pedidos;
       this.aplicarFiltros();
